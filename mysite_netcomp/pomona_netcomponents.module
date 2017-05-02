@@ -1,0 +1,109 @@
+<?php
+
+/*
+ * Implements hook_init()
+ */
+
+function mysite_netcomp_init(){
+    module_load_include('inc', 'mysite_netcomp', 'includes/api');
+    module_load_include('inc', 'mysite_netcomp', 'includes/block');
+    module_load_include('inc', 'mysite_netcomp', 'includes/form');
+    module_load_include('inc', 'mysite_netcomp', 'includes/theme');
+}
+
+
+/**
+ * Implements hook_menu().
+ * Makes a page that is generated with the api credentials to get the json data
+ */
+function mysite_netcomp_menu(){
+    $items['/netc/get/dist/%'] = array(
+        'page callback' => 'mysite_netcomp_dist_ajax',
+        'access arguments' => TRUE,
+        'type' => MENU_CALLBACK,
+        'page arguments' => array(3),
+        'delivery callback' => 'mysite_netcomp_delivery_callback',
+    );
+    return $items;
+}
+
+/**
+ * Builds content of distributor info
+ * @param string $distId
+ *  A unique ID for the distributor
+ * @return string
+ *  rendered output for distributor information block
+ */
+
+function mysite_netcomp_dist_ajax($distId){
+    return mysite_netcomp_build_distributor_info($distId, $apiDistributorResults = FALSE);
+}
+
+/**
+ * Delivery callback to prep content for display
+ * @param $page_callback_result
+ *  Results of mysite_netcomp_dist_ajax
+ *
+ */
+function mysite_netcomp_delivery_callback($page_callback_result){
+
+    $content = $page_callback_result;
+    print $content;
+    drupal_page_footer();
+
+}
+
+/**
+ * Gets the ID from the URI
+ * @param $distUri
+ * @return mixed
+ */
+
+function mysite_netcomp_extract_distId($distUri){
+    $dataPieces = explode('/', $distUri);
+    $distributorID = array_pop($dataPieces);
+    return $distributorID;
+}
+
+/**
+ * Builds results for product page listing
+ *
+ *
+ * @param $apiResults
+ * @return string
+ */
+
+// Move this to the block.inc file
+
+//function mysite_netcomp_build_product_results($apiResults){
+//
+//    $currentNode = menu_get_object('node');
+//    $wrapper = entity_metadata_wrapper('node', $currentNode);
+//    if (!$apiResults){
+//        $apiResults = _mysite_netcomp_apiRequest("Search", "GET", "", $ids = array($wrapper->field_model_number->value()));
+//    }
+//
+//    if ($apiResults == FALSE) {
+//        $output = "There were no results for this product search.";
+//        return $output;
+//    }
+//    return $output;
+//}
+
+
+/**
+ * Implements hook_theme().
+ */
+function mysite_netcomp_theme()
+{
+    return array(
+        'nc_product_results' => array(
+            'template' => 'nc_product_results',
+            'arguments' => array(
+                'variables' => null
+            ),
+        ),
+    );
+
+}
+

@@ -1,0 +1,4 @@
+name = mysite NetCompnonents Connector
+description = Connector for netcomp product search.
+core = "7.x"
+package = mysite

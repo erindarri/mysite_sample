@@ -1,0 +1,224 @@
+<?php
+
+
+/**
+ * Implements hook_ds_fields_info().
+ *
+ */
+function fpi_utility_ds_fields_info($entity_type)
+{
+    $fields = array();
+    if ($entity_type == 'node') {
+
+        $fields = array(
+            'rewritten_resource' => array(
+                'title' => t('Rewritten Resource (fpi_utility)'),
+                'field_type' => DS_FIELD_TYPE_FUNCTION,
+                'ui_limit' => array(
+                    'resource|*'
+                ),
+                'function' => 'fpi_utility_rewrite_url',
+                'properties' => array(
+                    'settings' => array(
+                        'field text' => array(
+                            'type' => 'textfield'
+                        ),
+                    ),
+                    'default' => array(
+                        'text field' => ''
+                    ),
+                ),
+            ),
+
+        );
+
+        return array($entity_type => $fields);
+    }
+    if ($entity_type == 'paragraphs_item') {
+
+        $fields = array(
+            'paragraphs_accordion_formatter' => array(
+                'title' => t('Paragraphs Accordion Formatter (fpi_utility)'),
+                'field_type' => DS_FIELD_TYPE_FUNCTION,
+                'ui_limit' => array(),
+                'function' => 'fpi_utility_paragraph_accordion_formatter',
+                'properties' => array(
+                    'settings' => array(
+                        'field text' => array(
+                            'type' => 'textfield'
+                        ),
+                    ),
+                    'default' => array(
+                        'text field' => ''
+                    ),
+                ),
+            ),
+
+        );
+
+
+        return array($entity_type => $fields);
+    }
+    return;
+}
+
+/**
+ * Render function to rewrite the link for resources.
+ *
+ * @param array $field
+ * @return string
+ */
+function fpi_utility_rewrite_url($field)
+{
+//    dpm($field);
+    $rewrittenResource = '';
+    $nodeTitle = $field['entity']->title;
+    $fileResource = "";
+    $videoResource = "";
+    $origNode = $field['entity']->nid;
+
+    if (isset($field['entity']->field_file_url[$field['entity']->language])) {
+        if (in_array('anonymous user', $user->roles)) {
+            $resourceTitle = $field['entity']->field_file_url[$field['entity']->language]['0']['title'];
+            $resourceUrl = $field['entity']->field_file_url[$field['entity']->language]['0']['url'];
+            $fileResource = l(t($nodeTitle), $resourceUrl,
+                array(
+                    'attributes' => array(
+                        'class' => array('resource-link'),
+                        'target' => '_blank',
+                        'external' => TRUE
+                    )
+                )
+            );
+        } else {
+            $resourceUrl = "/node/" . $origNode;
+            $fileResource = l(t($nodeTitle), $resourceUrl,
+                array(
+                    'attributes' => array(
+                        'class' => array('resource-link'),
+                        'target' => '_blank',
+                        'external' => TRUE
+                    )
+                )
+            );
+
+        }
+
+        if (isset($field['entity']->field_video)) {
+            $videoLink = "/node/";
+            $videoLink .= $field['entity']->nid;
+            $videoTitle = $nodeTitle;
+
+            $videoResource = l(t($videoTitle), $videoLink,
+                array(
+                    'attributes' => array(
+                        'class' => array('video-link'))));
+
+        }
+
+        if (empty($field['entity']->field_file_url)) {
+            $rewrittenResource = $videoResource;
+        } else {
+            $rewrittenResource = $fileResource;
+        }
+
+
+        return $rewrittenResource;
+
+
+    }
+
+}
+
+/**
+ * This redirects all urls from resources to go to the actual page and not the node if the user is not logged in
+ *
+ * @param int $node
+ * @param $view_mode
+ * @param $langcode
+ */
+function fpi_utility_node_view($node, $view_mode, $langcode)
+
+{
+    global $user;
+
+    //Get Current system/drupal path (e.g., node/123)
+    $cur_path = current_path();
+
+    //Break up the path into consumable parts for parsing
+    $path_parts = explode('/', $cur_path);
+
+    //The nid should always be at the end, grab it
+    $nid = end($path_parts);
+    if ($node->nid == $nid) {
+
+        //If the current page matches the node viewed, the page we're visiting and the node obj we're checking must be the same.
+
+        if ($node->type != 'product_display' && $node->type == 'resource') {
+            if (in_array('anonymous user', $user->roles)) {
+
+                global $language;
+
+                $wrapper = entity_metadata_wrapper('node', $node);
+                $pp_redirect = $wrapper->language($language->language)->field_file_url->url->value();
+                $video = $wrapper->language($language->language)->field_video->value();
+
+                // If the current page has the redirect url filled in but not the video field, go ahead and redirect
+                if ($pp_redirect && !$video) {
+                    drupal_goto($pp_redirect);
+                }
+            } else {
+                drupal_set_message(t('If you were not logged in, you would have been directed to the Partner Portal.'), 'status');;
+            }
+        }
+    }
+}
+
+
+/**
+ *  Render function to rewrite some paragraphs as accordions.
+ *
+ * @param array $field
+ * @return string
+ */
+function fpi_utility_paragraph_accordion_formatter($field)
+{
+    $paraAccordion = '';
+    $wrappedEntity = entity_metadata_wrapper('paragraphs_item', $field['entity']);
+    $fieldItems = $wrappedEntity->field_accordion_items->value();
+    $containerArray = array(
+        '#type' => 'container',
+        '#attributes' => array(
+            'class' => array('custom-collapse'),
+        ),
+    );
+
+    foreach ($fieldItems as $key => $item) {
+        $wrappedItem = entity_metadata_wrapper('paragraphs_item', $item);
+        $answerArray = array();
+
+
+        $fieldaccordionHeader = $wrappedItem->field_accordion_header->value();
+        $fieldAccordionContent = $wrappedItem->field_accordion_content->value();
+        if ($fieldAccordionContent) {
+            $answerArray[] = $fieldAccordionContent;
+            $paragraphView = entity_view('paragraphs_item', array($fieldAccordionContent), 'full');
+            $paragraphView = drupal_render($paragraphView);
+            $hrefId = 'accItem-' . $key;
+            $containerArray['accItem-' . $key] = array(
+                '#type' => 'markup',
+                '#markup' => '<div class="panel-heading">
+     <h4>' . $fieldaccordionHeader . '</h4>
+     <a data-parent="#accordion" href="' . $hrefId . '" data-toggle="collapse" class="plus-minus start-collapsed solo"></a>
+     </div>
+     <div class="field-items">
+    ' . $paragraphView . '
+     </div>',
+            );
+        }
+    }
+    $paraAccordion = drupal_render($containerArray);
+
+
+    return $paraAccordion;
+}
